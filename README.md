@@ -2,7 +2,7 @@
 
 A simple .pkpass generator for Apple's Passbook. It does not require any other hard to install libraries!
 
-Once you have generated your `pass.json` payload, use this project to generate the compressed and signed `.pkpass` 
+Once you have generated your `pass.json` payload, use this project to generate the compressed and signed `.pkpass` to be used by your customers.
 
   
 
@@ -33,14 +33,19 @@ Without these files, some tests will fail with the following error. `ExpCertific
 ## Usage
 Assuming you have a pass.json and an assets list
 ```buildoutcfg
-        import passgen
+import passgen
         
-        file_list = [logo_file_path, ] # Assets
-        random_pass_name = "event-name-here-%s.pkpass" % str(uuid4().hex[:8]) 
-        pass_obj = passgen.Pass(pass_name, file_list, auto_generate=True)
+file_list = [logo_file_path, ] # Assets
+random_pass_name = "event-name-here-%s.pkpass" % str(uuid4().hex[:8]) 
+pass_obj = passgen.Pass(pass_name, file_list, auto_generate=True)
 ```
 
 ## Tests
+
+##### Running tests
+```buildoutcfg
+$ nosetests
+```
 
 ##### Certificate
 As mentioned in Setup, you will need a certificate and key in the project's root for all tests to pass.  
