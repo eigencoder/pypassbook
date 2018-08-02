@@ -21,175 +21,175 @@ KEY_FILE = "key.pem"
 SAVE_TMP_FILES = False #Will still keep files on exceptions due to _cleanup not being called (interrupted)
 
 class Pass(object):
-  def __init__(self, pass_name, files=[], auto_generate=False, allow_overwrite=False):
-    """
-    files: set/list of file names to be included in the compressed pass 
-    pass_name: barcode or username+barcode?
-    destination: folder
-    """
-    self.files = set(files) #Always add icon.png and logo.png?
-    self.pass_name = pass_name
-    self.manifest_filename = MANIFEST
-    self.signature_filename = SIGNATURE
-    self.password = "qazxswedc"
+    def __init__(self, pass_name, files=[], auto_generate=False, allow_overwrite=False):
+        """
+        files: set/list of file names to be included in the compressed pass
+        pass_name: barcode or username+barcode?
+        destination: folder
+        """
+        self.files = set(files) #Always add icon.png and logo.png?
+        self.pass_name = pass_name
+        self.manifest_filename = MANIFEST
+        self.signature_filename = SIGNATURE
+        self.password = "qazxswedc"
 
-    #Use file streams / strings instead of file-names?
-    #Use https://github.com/gourneau/SpiderOak-zipstream if GPL3 is compatible with OutboxAXS's policies (probably not?)
+        #Use file streams / strings instead of file-names?
+        #Use https://github.com/gourneau/SpiderOak-zipstream if GPL3 is compatible with OutboxAXS's policies (probably not?)
 
-    #Path for all temporary files. Must not put all 'manifest.json' in the same folder and be thread-safe!
-    self._create_tmp_folder()
+        #Path for all temporary files. Must not put all 'manifest.json' in the same folder and be thread-safe!
+        self._create_tmp_folder()
 
-    #Make sure pass doesn't already exists
-    if not allow_overwrite:
-      if os.path.exists(self.pass_name):
-        raise pbExceptions.expPathNotAvailable("Pass Name is already taken.")
+        #Make sure pass doesn't already exists
+        if not allow_overwrite:
+            if os.path.exists(self.pass_name):
+                raise pbExceptions.expPathNotAvailable("Pass Name is already taken.")
 
-    if auto_generate:
-      self.generate()
+        if auto_generate:
+            self.generate()
 
-  def _create_tmp_folder(self):
-    self.tmp_path = "tmp_" + str(uuid4().hex[:16]) 
-    try: #os.path.exists is not thread-safe. Use try/except
-      os.makedirs(self.tmp_path)
-      logging.debug("Added path: %s" % self.tmp_path)
-    except OSError as e: 
-      if e.errno == errno.EEXIST:
-        #ToDo: Add exception to hll
-        raise expPathAlreadyExists("Temporary path %s already exists, cannot proceed to create and use as tmp folder. Note: _create_tmp_folder should only be called once." % self.tmp_path)
-      else:
-        raise e
+    def _create_tmp_folder(self):
+        self.tmp_path = "tmp_" + str(uuid4().hex[:16])
+        try: #os.path.exists is not thread-safe. Use try/except
+            os.makedirs(self.tmp_path)
+            logging.debug("Added path: %s" % self.tmp_path)
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                #ToDo: Add exception to hll
+                raise expPathAlreadyExists("Temporary path %s already exists, cannot proceed to create and use as tmp folder. Note: _create_tmp_folder should only be called once." % self.tmp_path)
+            else:
+                raise e
 
-    #Update manifest_filename to include path
-    self.manifest_filename = os.path.join(self.tmp_path, self.manifest_filename)
-    self.signature_filename = os.path.join(self.tmp_path, self.signature_filename)
+        #Update manifest_filename to include path
+        self.manifest_filename = os.path.join(self.tmp_path, self.manifest_filename)
+        self.signature_filename = os.path.join(self.tmp_path, self.signature_filename)
 
-  def _cleanup(self):
-    if (not SAVE_TMP_FILES) and os.path.exists(self.tmp_path):
-      logging.debug("Removing path: %s" % self.tmp_path)
-      shutil.rmtree(self.tmp_path)      
-    #Add entry to DB / callback done?
+    def _cleanup(self):
+        if (not SAVE_TMP_FILES) and os.path.exists(self.tmp_path):
+            logging.debug("Removing path: %s" % self.tmp_path)
+            shutil.rmtree(self.tmp_path)
+        #Add entry to DB / callback done?
 
-  def generate(self):
-    self.gen_manifest()
-    self.sign()
-    self.compress()
+    def generate(self):
+        self.gen_manifest()
+        self.sign()
+        self.compress()
 
-    logging.info("Pass %s Generated" % self.pass_name)
-    self._cleanup()
+        logging.info("Pass %s Generated" % self.pass_name)
+        self._cleanup()
 
-  def gen_manifest(self):
-    """ Build Manifest file.
-    Go through each file and get their signatures
-    """
-    manifest = {}
+    def gen_manifest(self):
+        """ Build Manifest file.
+        Go through each file and get their signatures
+        """
+        manifest = {}
 
-    if not len(self.files):
-      logging.warning("No files found to generate the manifest.")
-    
-    for file_name in self.files:
-      #Check that file exists? #TODO
-      with open(file_name) as f:
-        file_data = f.read()
-        sig = sha1(file_data).hexdigest() #ToDo: Once everything works, try to switch to sha512?
-        manifest[file_name] = sig
+        if not len(self.files):
+            logging.warning("No files found to generate the manifest.")
 
-    with open(self.manifest_filename, 'w') as manifestHandler:
-      json.dump(manifest, manifestHandler, ensure_ascii=False)
+        for file_name in self.files:
+            #Check that file exists? #TODO
+            with open(file_name) as f:
+                file_data = f.read()
+                sig = sha1(file_data).hexdigest() #ToDo: Once everything works, try to switch to sha512?
+                manifest[file_name] = sig
 
-    logging.debug("Manifest generated: %s" % self.manifest_filename)
-    #return manifest
+        with open(self.manifest_filename, 'w') as manifestHandler:
+            json.dump(manifest, manifestHandler, ensure_ascii=False)
 
-  def confirm_signed(self):
-    if not self.signature_filename or not os.path.exists(self.signature_filename):
-      raise pbExceptions.expSignatureNotFound("Unable to confirm signature, file '%s' not found. Check path." % self.signature_filename)
-    params = ['openssl', 'smime',
-                '-verify',
-                '-in', self.signature_filename,
-                '-content', self.manifest_filename,
-                '-inform', 'der',
-                '-noverify' #-noverify means to ignore certificate's chain
-                ]
+        logging.debug("Manifest generated: %s" % self.manifest_filename)
+        #return manifest
 
-    ret = call(params, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb')) #Make this call silently
-    if ret == 0:
-      return True
-    else:
-      if ret == 4: #This shouldn't happen since it is covered above
-        raise pbExceptions.expSignatureNotFound("Unable to confirm signature, file '%s' not found." % self.signature_filename)
-      #import pdb; pdb.set_trace() #Add exceptions for any code
-      return False
+    def confirm_signed(self):
+        if not self.signature_filename or not os.path.exists(self.signature_filename):
+            raise pbExceptions.expSignatureNotFound("Unable to confirm signature, file '%s' not found. Check path." % self.signature_filename)
+        params = ['openssl', 'smime',
+                    '-verify',
+                    '-in', self.signature_filename,
+                    '-content', self.manifest_filename,
+                    '-inform', 'der',
+                    '-noverify' #-noverify means to ignore certificate's chain
+                    ]
 
-
-
-  def compress(self):
-    """ Zip all files. Must be called AFTER signature.
-        Will create the file named from self.pass_name 
-    """
-    #Make sure manifest and signature are included
-    to_compress = {self.manifest_filename, self.signature_filename} | self.files
-
-    #if not confirm_signed():
-    #  raise
-
-    with zipfile.ZipFile(self.pass_name, 'w', compression=zipfile.ZIP_DEFLATED) as zipped:
-      for uncompressed_file in to_compress:
-        zipped.write(uncompressed_file)
-
-  def _openssl_smime(self, password, certificate, key):
-    """
-    Use OpenSSL directly to sign (generate signature)
-    """
-    if not certificate: 
-      raise ValueError("Bad parameter. Must pass a certificate name.")
-    if not self.manifest_filename:
-      raise ValueError("Bad parameter. Must have a manifest name to sign.")
-
-    if not os.path.exists(certificate):
-      raise pbExceptions.expCertificateNotFound("Certificate file required for signature not found.") 
-    if not os.path.exists(self.manifest_filename):
-      raise pbExceptions.expManifestNotFound("Manifest file required for signature not found.")  
-    
-    params = ['openssl', 'smime', 
-                '-binary', 
-                '-sign', 
-                '-certfile', 'wwdr.pem', 
-                '-signer', certificate, #'certificate.pem', 
-                '-inkey', key, #'key.pem',
-                '-in', self.manifest_filename, #'manifest.json',
-                '-out', self.signature_filename, #'signature', 
-                '-outform', 'DER', 
-                '-passin', 'pass:'+password, ]
-    #ret = call(params) 
-    #ret = call(params, stdout=open(os.devnull, 'wb')) #Make call silently. How to redirect to logging, only if level is debug??
-    ret = call(params, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb')) #Make this call silently
-    if not ret==0:
-      if ret == 2:
-        raise pbExceptions.expIncorrectPassword("Unable to sign manifest with given information. Incorrect password provided.")
-      else:
-        import pdb; pdb.set_trace()
-        raise Exception("Unknown exception number '%s' while trying to sign manifest." % ret)
-
-  def sign(self):
-    """ Generate signature file, which authenticates the pass. 
-    Once signed, no file can be modified without re-signing.
-    """
-    if not self.password:
-        logging.warning("Warning: no password set.")
-
-    self._openssl_smime(password=self.password, certificate=CERTIFICATE, key=KEY_FILE)
+        ret = call(params, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb')) #Make this call silently
+        if ret == 0:
+            return True
+        else:
+            if ret == 4: #This shouldn't happen since it is covered above
+                raise pbExceptions.expSignatureNotFound("Unable to confirm signature, file '%s' not found." % self.signature_filename)
+            #import pdb; pdb.set_trace() #Add exceptions for any code
+            return False
 
 
-  def add_file(self, filename):
-    """ Add a file to the pass."""
-    if not os.path.exists(filename):
-      raise pbExceptions.expFileNotFound("Attempted to added file which could not be found.")
-    self.files.add(filename)
+
+    def compress(self):
+        """ Zip all files. Must be called AFTER signature.
+            Will create the file named from self.pass_name
+        """
+        #Make sure manifest and signature are included
+        to_compress = {self.manifest_filename, self.signature_filename} | self.files
+
+        #if not confirm_signed():
+        #  raise
+
+        with zipfile.ZipFile(self.pass_name, 'w', compression=zipfile.ZIP_DEFLATED) as zipped:
+            for uncompressed_file in to_compress:
+                zipped.write(uncompressed_file)
+
+    def _openssl_smime(self, password, certificate, key):
+        """
+        Use OpenSSL directly to sign (generate signature)
+        """
+        if not certificate:
+            raise ValueError("Bad parameter. Must pass a certificate name.")
+        if not self.manifest_filename:
+            raise ValueError("Bad parameter. Must have a manifest name to sign.")
+
+        if not os.path.exists(certificate):
+            raise pbExceptions.expCertificateNotFound("Certificate file required for signature not found.")
+        if not os.path.exists(self.manifest_filename):
+            raise pbExceptions.expManifestNotFound("Manifest file required for signature not found.")
+
+        params = ['openssl', 'smime',
+                    '-binary',
+                    '-sign',
+                    '-certfile', 'wwdr.pem',
+                    '-signer', certificate, #'certificate.pem',
+                    '-inkey', key, #'key.pem',
+                    '-in', self.manifest_filename, #'manifest.json',
+                    '-out', self.signature_filename, #'signature',
+                    '-outform', 'DER',
+                    '-passin', 'pass:'+password, ]
+        #ret = call(params)
+        #ret = call(params, stdout=open(os.devnull, 'wb')) #Make call silently. How to redirect to logging, only if level is debug??
+        ret = call(params, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb')) #Make this call silently
+        if not ret==0:
+            if ret == 2:
+                raise pbExceptions.expIncorrectPassword("Unable to sign manifest with given information. Incorrect password provided.")
+            else:
+                import pdb; pdb.set_trace()
+                raise Exception("Unknown exception number '%s' while trying to sign manifest." % ret)
+
+    def sign(self):
+        """ Generate signature file, which authenticates the pass.
+        Once signed, no file can be modified without re-signing.
+        """
+        if not self.password:
+            logging.warning("Warning: no password set.")
+
+        self._openssl_smime(password=self.password, certificate=CERTIFICATE, key=KEY_FILE)
+
+
+    def add_file(self, filename):
+        """ Add a file to the pass."""
+        if not os.path.exists(filename):
+            raise pbExceptions.expFileNotFound("Attempted to added file which could not be found.")
+        self.files.add(filename)
 
 
 class Utility(object):
     """
-    Generate files necessary for pass signing: 
-    ##openssl pkcs12 -in "My PassKit Cert.p12" -clcerts -nokeys -out certificate.pem 
+    Generate files necessary for pass signing:
+    ##openssl pkcs12 -in "My PassKit Cert.p12" -clcerts -nokeys -out certificate.pem
     ##openssl pkcs12 -in "My PassKit Cert.p12" -nocerts -out key.pem - See more at: http://www.futurechips.org/thoughts-on-latest-happenings/generating-passes-ios6s-passbook.html#sthash.AdLQE2k1.dpuf
 
     openssl pkcs12 -passin pass:"somepass" -in "mycert.p12" -clcerts -nokeys -out certificate.pem
@@ -220,6 +220,3 @@ logging.basicConfig(filename=LOG_FILENAME,
                     level=LOG_LEVEL,
                     )
 #logging.getLogger().addHandler(logging.StreamHandler())
-
-
-
