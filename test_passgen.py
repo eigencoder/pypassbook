@@ -1,9 +1,9 @@
+import unittest
 
 from uuid import uuid4
 
 import os
 import passgen
-import unittest
 
 import passbook_exceptions as pbExceptions
 
@@ -28,11 +28,11 @@ def _files_content_equal(file1, file2, trim_after=None):
 
     return file1_str == file2_str
 
-def cleanup_pass(passObject):
+def cleanup_pass(pass_object):
     """ Always call this with any Pass generated (including custom Pass() in tests) """
-    passObject._cleanup()
-    if os.path.exists(passObject.pass_name):
-        os.remove(passObject.pass_name)
+    pass_object._cleanup()
+    if os.path.exists(pass_object.pass_name):
+        os.remove(pass_object.pass_name)
 
 
 class PassbookTest(unittest.TestCase):
@@ -40,14 +40,14 @@ class PassbookTest(unittest.TestCase):
     def setUp(self):
         file_list = [LOGO, ]
         tmp_pass_name = "tmp_" + str(uuid4().hex[:8]) +".pkpass"
-        self.passObj = passgen.Pass(tmp_pass_name, file_list)
+        self.pass_obj = passgen.Pass(tmp_pass_name, file_list)
 
     def tearDown(self):
         #TODO Even on exception, remove temporary files
-        cleanup_pass(self.passObj)
+        cleanup_pass(self.pass_obj)
 
     def test_init(self):
-        p = self.passObj
+        p = self.pass_obj
         self.assertEqual(os.path.basename(p.manifest_filename),
                          "manifest.json",
                          "Apple / Passbook requires manifest file to be named manifest.json")
@@ -57,7 +57,7 @@ class PassbookTest(unittest.TestCase):
         #p._cleanup() #If test passed, we no longer need the tmp_ folder
 
     def test_generate_manifest(self):
-        p = self.passObj
+        p = self.pass_obj
         # Do NOT move this file to test_assets, it would get signed and added to the manifest
         expected_manifest_json = "test_expected/manifest.json.expected"
         #Check that manifest doesn't already exist
@@ -74,8 +74,9 @@ class PassbookTest(unittest.TestCase):
         #Compare files directly
         self.assertTrue(_files_content_equal(expected_manifest_json, p.manifest_filename), "Manifest file differs from expected")
 
-    def test_sign (self):
-        p = self.passObj
+    @unittest.skip("To improve: use a rexeg and openssl to confirm signature")
+    def test_sign(self):
+        p = self.pass_obj
         # Do NOT move this file to test_assets, it would get signed and added to the manifest
         #TODO THIS FILE MUST BE ADDED
         expected_file = "test_expected/signature.expected"
@@ -88,7 +89,7 @@ class PassbookTest(unittest.TestCase):
         self.assertTrue(p.confirm_signed(), "Signature failed verification, check that it is valid")
 
     def test_openssl_smime_bad_cert_fails(self):
-        p = self.passObj
+        p = self.pass_obj
         p.gen_manifest() #Build manifest, required to sign
 
         #Call _openssl_smime directly to change standard value
@@ -114,28 +115,28 @@ class PassbookTest(unittest.TestCase):
         passgen.CERTIFICATE = original_value
 
     def test_sign_before_build_fails(self):
-        p = self.passObj
+        p = self.pass_obj
         #Without building manifest first!
         p.manifest_filename = "this_path_should_not_exist.fail"
         with self.assertRaises(pbExceptions.ExpManifestNotFound):
             p.sign()
 
     def test_sign_no_manifest_fails(self):
-        p = self.passObj
+        p = self.pass_obj
         p.gen_manifest() #Build manifest, then remove it
         p.manifest_filename = None #Remove link to manifest
         with self.assertRaises(ValueError):
             p.sign()
 
     def test_sign_bad_manifest_name_fails(self):
-        p = self.passObj
+        p = self.pass_obj
         p.gen_manifest() #Build manifest, then remove it
         p.manifest_filename = "this_path_should_not_exist.fail" #Remove link to manifest
         with self.assertRaises(pbExceptions.ExpManifestNotFound):
             p.sign()
 
     def test_sign_wrong_pw_fails(self):
-        p = self.passObj
+        p = self.pass_obj
         bad_pw = "12345"
         self.assertNotEqual(p.password, bad_pw, "Bad password must be bad for this test to work!")
         p.password = bad_pw #Switch correct pw with bad pw
@@ -143,10 +144,9 @@ class PassbookTest(unittest.TestCase):
         with self.assertRaises(pbExceptions.ExpIncorrectPassword):
             p.sign()
 
-    #@unittest.skip("Not implemented")
     def test_integration_base(self):
         """ Include pass.json"""
-        p = self.passObj
+        p = self.pass_obj
         p.add_file(JSON_PASS)
         p.add_file(ICON)
         p.gen_manifest() #Build manifest, required to sign
@@ -154,7 +154,7 @@ class PassbookTest(unittest.TestCase):
         self.assertTrue(p.confirm_signed(), "Signature failed verification, check that it is valid")
 
     def test_generate_full(self):
-        p = self.passObj
+        p = self.pass_obj
         p.add_file(JSON_PASS)
         p.add_file(ICON)
 
@@ -175,8 +175,3 @@ class PassbookTest(unittest.TestCase):
         passgen.SAVE_TMP_FILES = original_value #Return to original value
 
         cleanup_pass(p)
-
-
-    @unittest.skip("Not implemented")
-    def test_logo(self):
-        pass

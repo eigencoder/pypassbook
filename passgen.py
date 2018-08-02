@@ -129,7 +129,9 @@ class Pass(object):
         to_compress = {self.manifest_filename, self.signature_filename} | self.files
 
         if not self.confirm_signed():
-         raise pbExceptions.ExpSignatureNotFound("No valid signature found. Certificate, key, or their associated password may not be valid.")
+            raise pbExceptions.ExpSignatureNotFound(
+                "No valid signature found. Certificate, key, or their associated password may not be valid."
+            )
 
         with zipfile.ZipFile(self.pass_name, 'w', compression=zipfile.ZIP_DEFLATED) as zipped:
             for uncompressed_file in to_compress:
