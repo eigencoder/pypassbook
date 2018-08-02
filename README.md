@@ -1,6 +1,8 @@
 # PyPassbook
 
-A simple .pkpass generator for Apple's Passbook. It does not require any other hard to install libraries!
+A simple .pkpass generator for Apple's Passbook. Easily generate "mobile tickets" for Apple devices!
+
+PyPassbook uses standard Openssl and no other library so it will work on non-osx machines. No need to audit extra libraries, and this project is small enough for a security engineer to review quickly.
 
 Once you have generated your `pass.json` payload, use this project to generate the compressed and signed `.pkpass` to be used by your customers.
 
