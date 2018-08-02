@@ -15,6 +15,9 @@ brew install openssl
 ```
 
 #### Private Cert/Key
+DO NOT USE THE DEFAULT MOCK KEY/CERTIFICATES. They are here for testing purposes and demo only. 
+**They are not safe, nor valid**. The password is '1234'.
+
 To sign the manifest, you must have a certificate and a key. You can generate the following files and add them to the root of this project or add a symbolic link.
 
 - `passkit_cert_p12` 
@@ -29,6 +32,8 @@ To sign the manifest, you must have a certificate and a key. You can generate th
 
 Without these files, some tests will fail with the following error. `ExpCertificateNotFound`
 
+#### Password
+Make sure to edit `passgen.py:PASSWORD` variable and set it to the value required by your key.pem
 
 ## Usage
 Assuming you have a pass.json and an assets list
@@ -53,3 +58,8 @@ As mentioned in Setup, you will need a certificate and key in the project's root
 ##### Signature
 If you intend to test the signature code, you will need to add a copy of the signature in `test_expected/signature.expected`. You can find one in a temporary folder. 
 First test it by importing the resulting code to an Apple device which has the necessary developer profile.
+
+##### Mock Cert/Key
+To generate a mock certificate and key, you can run the following code. It will not be valid for passes and pass will be rejected by iOS.
+
+```openssl req -x509 -newkey rsa:4096 -keyout key.pem -out certificate.pem -days 9999```

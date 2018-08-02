@@ -82,8 +82,8 @@ class PassbookTest(unittest.TestCase):
         p.gen_manifest() #Build manifest, required to sign
         p.sign()
 
-        #Load signatures and check they are the same (ending will change, so trim after 2900 characters)
-        self.assertTrue(_files_content_equal(expected_file, p.signature_filename, trim_after=2900),
+        #Load signatures and check they are the same (ending will always change, so trim after 2800 characters)
+        self.assertTrue(_files_content_equal(expected_file, p.signature_filename, trim_after=2800),
                         "Signature file differs from expected")
         self.assertTrue(p.confirm_signed(), "Signature failed verification, check that it is valid")
 
